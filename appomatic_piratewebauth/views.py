@@ -3,7 +3,7 @@ import urllib
 import urllib2
 import django.contrib.auth
 import lxml.etree
-import appomatic_piratewebauth.models
+import django.contrib.auth.models
 from django.conf import settings
 
 def login(request):
@@ -41,29 +41,26 @@ def login_done(request):
 
     userdata['geographiesforperson'].reverse()
     geopath = ['geo']
-    for item in userdata['geographiesforperson']:
+    for item in userdata.pop('geographiesforperson'):
         geopath.append(item)
         userdata['memberships'].append('--'.join(geopath))
 
-    existingusers = appomatic_piratewebauth.models.User.objects.filter(username = userdata['handle'])
+
+    existingusers = django.contrib.auth.models.User.objects.filter(username = userdata['openidhandle'])
     if existingusers:
         user = existingusers[0]
     else:
-        user = appomatic_piratewebauth.models.User()
+        user = django.contrib.auth.models.User()
 
-    user.username = userdata.pop('handle')
+    user.username = userdata.pop('openidhandle')
     user.email = userdata.pop('email')
     user.first_name = userdata.pop('givenname')
     user.last_name = userdata.pop('sn')
-    user.info = userdata
 
     user.save()
 
-    if not existingusers:
-        user.openid_set.create(openid=user.username)
-
     groups = []
-    for groupname in userdata['memberships']:
+    for groupname in userdata.pop('memberships'):
         existinggroups = django.contrib.auth.models.Group.objects.filter(name = groupname)
         if existinggroups:
             groups.extend(existinggroups)
@@ -73,6 +70,18 @@ def login_done(request):
             groups.append(group)
     user.groups.clear()
     user.groups.add(*groups)
+
+    if not existingusers:
+        user.openid_set.create(openid=user.username)
+
+    openid = user.openid_set.all()[0]
+    openid.axdatas.all().delete()
+    openidmap = {
+        'phone': 'http://openid.net/schema/contact/phone/default'
+        }
+    for key, value in userdata.iteritems():
+        if key in openidmap:
+            openid.axdatas.create(key = openidmap[key], value=value)
 
     user.backend = 'django.contrib.auth.backends.ModelBackend'
     django.contrib.auth.login(request, user)
