@@ -33,7 +33,7 @@ def login_done(request):
     if not content.tag == "VALID":
         return django.http.HttpResponseRedirect(django.core.urlresolvers.reverse("appomatic_piratewebauth.views.login") + "?next=" + next)
 
-    userdata = dict((item.tag.lower(), item.text) for item in content.xpath("//VALID/USER/*"))
+    userdata = dict((item.tag.lower(), item.text) for item in content.xpath("//VALID/USER/*") if item.text is not None)
     userdata['geographiesforperson'] = content.xpath("//VALID/USER/GEOGRAPHIESFORPERSON//*/@name")
     userdata['memberships'] = content.xpath("//VALID/USER/MEMBERSHIPS/*/@name")
 
